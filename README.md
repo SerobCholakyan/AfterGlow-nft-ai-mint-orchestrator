@@ -1,121 +1,89 @@
-# AfterGlow-nft-ai-mint-orchestrator
+# AfterGlow – NFT AI Mint Orchestrator
 
-AfterGlow is a public, reusable template for:
+AfterGlow is a public, composable protocol and reference implementation for:
 
-- Generating NFT images via an AI endpoint (OpenAI Images–style)
-- Storing images + metadata on IPFS via NFT.Storage
-- Minting ERC-721 NFTs on Polygon or Ethereum
-- Viewing them on marketplaces like OpenSea once indexed
-- Browsing a gallery of minted NFTs
-- Using an admin dashboard for minting
-- Rate-limited API to avoid abuse
+- AI-generated NFTs (ERC-721)
+- Token-gated AI access (ERC-20 / ERC-1155)
+- Token-bound accounts (ERC-6551) as NFT “agent wallets”
 
-This repository **does not** include any private keys, wallets, or secrets.  
-You bring your own `.env` values and AI/IPFS providers.
+## Features
 
-## Tech stack
+- **AI-powered minting:** Off-chain AI generates media, on-chain contracts mint ERC-721 NFTs.
+- **Token-gated AI tiers:** ERC-20 / ERC-1155 balances determine which AI tier a wallet can access.
+- **ERC-6551 accounts:** Each NFT can have its own smart-contract wallet for credits, rewards, and state.
 
-- **Smart contract:** ERC-721 with tokenURI storage (OpenZeppelin)
-- **Chains:** Polygon mainnet (137) and Ethereum mainnet (1)
-- **Frontend:** Next.js + React + Tailwind CSS
-- **Wallet:** MetaMask + ethers.js
-- **Storage:** IPFS via NFT.Storage
-- **AI:** OpenAI Images–style endpoint (you configure URL + key)
-- **Extras:** Gallery, Admin dashboard, API rate limiting, dark UI
+## ERC Standards
 
----
+- **ERC-20:** Fungible tokens for AI access and credits.
+- **ERC-721:** Core NFT standard for AI-generated assets.
+- **ERC-1155:** Optional multi-token standard for passes, credits, and badges.
+- **ERC-6551:** Token-bound accounts for NFT-native wallets.
+- **ERC-165:** Interface detection for safe interoperability.
+- **ERC-173:** Ownable pattern for public modules.
+- **ERC-1822 / ERC-1967 (optional):** Upgradeable proxy patterns.
 
-## Getting started
+## Contracts
 
-### 1. Install dependencies
+- `contracts/ai/PublicAITierOracle.sol`  
+  Public on-chain oracle for AI access tiers based on ERC-20 / ERC-1155 balances.
+
+- `contracts/erc6551/PublicNFTAccountModule.sol`  
+  Registry-agnostic helper for creating and querying ERC-6551 token-bound accounts.
+
+- `contracts/erc6551/interfaces/IERC6551Registry.sol`  
+  Minimal interface for ERC-6551 registry.
+
+- `contracts/nft/AfterGlowNFT.sol`  
+  Example ERC-721 contract for AI-generated NFTs.
+
+## High-Level Flow
+
+1. User holds ERC-20 / ERC-1155 tokens.
+2. Backend or contracts query `PublicAITierOracle` to determine AI tier.
+3. Backend runs AI job (image, music, text, etc.).
+4. NFT is minted via `AfterGlowNFT` (ERC-721).
+5. `PublicNFTAccountModule` is used to create an ERC-6551 account for the NFT.
+6. The NFT’s token-bound account can hold credits, rewards, or other assets.
+
+## Deployment
+
+Example Hardhat scripts are in `/scripts`:
+
+- `deploy_tier_oracle.js`
+- `deploy_6551_module.js`
+- `deploy_nft.js`
+
+### Quickstart (Hardhat)
 
 ```bash
-# At repo root
 npm install
-
-# Frontend
-cd frontend
-npm install
-
-
-2. Configure environment variables
-
-Copy the example files and fill them with your own values:
-
-# At repo root
-cp .env.example .env
-
-cd frontend
-cp .env.local.example .env.local
-
-
-Edit .env and frontend/.env.local:
-
-• Set PRIVATE_KEY to your deployer wallet private key (never commit this).
-• Set POLYGON_RPC_URL and ETHEREUM_RPC_URL to your RPC provider URLs.
-• Set CONTRACT_OWNER_ADDRESS to your EOA.
-• After deployment, set NEXT_PUBLIC_CONTRACT_ADDRESS to the deployed contract address.
-• Set AI_IMAGE_ENDPOINT, AI_API_KEY, and NFT_STORAGE_API_KEY in frontend/.env.local.
-
-
-3. Compile and deploy the contract
-
-# At repo root
 npx hardhat compile
 
-# Deploy to Polygon mainnet
-npx hardhat run scripts/deploy.ts --network polygon
-
-# OR deploy to Ethereum mainnet
-npx hardhat run scripts/deploy.ts --network ethereum
+npx hardhat run scripts/deploy_tier_oracle.js --network <network>
+npx hardhat run scripts/deploy_6551_module.js --network <network>
+npx hardhat run scripts/deploy_nft.js --network <network>
 
 
-Copy the printed contract address into:
+Backend
 
-• .env as NEXT_PUBLIC_CONTRACT_ADDRESS
-• frontend/.env.local as NEXT_PUBLIC_CONTRACT_ADDRESS
+Example backend services and routes are in /backend:
 
-
-4. Run the frontend
-
-cd frontend
-npm run dev
+• backend/services/aiTierService.ts
+• backend/services/tbaService.ts
+• backend/routes/api.ts
 
 
-Open http://localhost:3000 in your browser.
+These use ethers to talk to the deployed contracts and expose a simple HTTP API.
 
----
+Docs
 
-How it works
+See /docs for:
 
-1. User connects MetaMask.
-2. User enters a text prompt and optional name/description.
-3. Frontend calls /api/generate with the prompt.
-4. API route:• Calls your AI endpoint to generate an image (OpenAI Images–style).
-• Uploads the image to IPFS via NFT.Storage.
-• Builds metadata JSON and uploads it to IPFS.
-• Returns tokenURI (ipfs://CID) and image CID.
+• architecture.md – system diagram
+• erc-standards.md – standards overview
+• api-spec.md – HTTP API spec
 
-5. Frontend shows a preview and a “Mint” button.
-6. On mint:• Frontend calls mintTo(recipient, tokenURI) on the contract via MetaMask.
-• Once mined, the NFT is live on-chain and will appear on marketplaces after indexing.
-
-7. Gallery page reads totalMinted() and tokenURIs to show minted NFTs.
-8. Admin page provides a focused minting interface (same contract).
-
-
----
-
-Security notes
-
-• Never commit .env or .env.local.
-• Use a dedicated deployer wallet with limited funds.
-• Start on a testnet (by adjusting config) before mainnet.
-• You can rotate NFT_STORAGE_API_KEY and AI keys at any time.
-
-
----
 
 License
 
-MIT – feel free to fork, modify, and share.
+MIT – fork, extend, and build your own AI × NFT experiences.
