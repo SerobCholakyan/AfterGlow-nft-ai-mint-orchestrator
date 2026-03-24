@@ -5,10 +5,11 @@ import { rateLimit } from "../../lib/rateLimit";
 const AI_IMAGE_ENDPOINT = process.env.AI_IMAGE_ENDPOINT!;
 const AI_API_KEY = process.env.AI_API_KEY!;
 const NFT_STORAGE_API_KEY = process.env.NFT_STORAGE_API_KEY!;
+const API_KEY = process.env.AFTERGLOW_API_KEY!;
 
 type GenerateResponse = {
   tokenURI: string;
-  imageCid: string;
+  imageCids: string[];
   metadataCid: string;
 };
 
@@ -20,8 +21,13 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!AI_IMAGE_ENDPOINT || !AI_API_KEY || !NFT_STORAGE_API_KEY) {
+  if (!AI_IMAGE_ENDPOINT || !AI_API_KEY || !NFT_STORAGE_API_KEY || !API_KEY) {
     return res.status(500).json({ error: "Server not configured (AI or NFT.Storage keys missing)" });
+  }
+
+  const headerKey = req.headers["x-afterglow-key"];
+  if (!headerKey || headerKey !== API_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   const ip = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "unknown";
@@ -31,19 +37,21 @@ export default async function handler(
   }
 
   try {
-    const { prompt, name, description, attributes } = req.body || {};
+    const { prompt, name, description, attributes, negativePrompt, count } = req.body || {};
 
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Missing or invalid prompt" });
     }
 
-    // 1. AI image generation (OpenAI Images–style)
+    const n = Math.min(Math.max(Number(count) || 1, 1), 4);
+
     const aiResp = await axios.post(
       AI_IMAGE_ENDPOINT,
       {
         prompt,
-        n: 1,
-        size: "1024x1024"
+        n,
+        size: "1024x1024",
+        negative_prompt: negativePrompt || undefined
       },
       {
         headers: {
@@ -53,29 +61,29 @@ export default async function handler(
       }
     );
 
-    const imageBase64 = aiResp.data?.data?.[0]?.b64_json;
-    if (!imageBase64) {
+    const imagesBase64: string[] = aiResp.data?.data?.map((d: any) => d.b64_json) || [];
+    if (!imagesBase64.length) {
       throw new Error("AI endpoint did not return image data");
     }
 
-    const imageBuffer = Buffer.from(imageBase64, "base64");
-
-    // 2. Upload image to IPFS via NFT.Storage
-    const imageUpload = await axios.post(
-      "https://api.nft.storage/upload",
-      imageBuffer,
-      {
-        headers: {
-          Authorization: `Bearer ${NFT_STORAGE_API_KEY}`,
-          "Content-Type": "application/octet-stream"
+    const imageCids: string[] = [];
+    for (const b64 of imagesBase64) {
+      const buf = Buffer.from(b64, "base64");
+      const upload = await axios.post(
+        "https://api.nft.storage/upload",
+        buf,
+        {
+          headers: {
+            Authorization: `Bearer ${NFT_STORAGE_API_KEY}`,
+            "Content-Type": "application/octet-stream"
+          }
         }
-      }
-    );
+      );
+      imageCids.push(upload.data.value.cid as string);
+    }
 
-    const imageCid = imageUpload.data.value.cid as string;
-    const imageUrl = `ipfs://${imageCid}`;
+    const imageUrl = `ipfs://${imageCids[0]}`;
 
-    // 3. Metadata JSON
     const metadata = {
       name: typeof name === "string" && name.trim() ? name : "AfterGlow AI NFT",
       description:
@@ -100,7 +108,7 @@ export default async function handler(
     const metadataCid = metadataUpload.data.value.cid as string;
     const tokenURI = `ipfs://${metadataCid}`;
 
-    return res.status(200).json({ tokenURI, imageCid, metadataCid });
+    return res.status(200).json({ tokenURI, imageCids, metadataCid });
   } catch (error: any) {
     console.error("Generation error:", error?.response?.data || error.message || error);
     return res.status(500).json({ error: "Generation failed" });
