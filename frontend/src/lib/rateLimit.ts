@@ -1,6 +1,3 @@
-// Simple in-memory rate limiter (per IP + route) for demo purposes.
-// For production, use Redis or another shared store.
-
 type Bucket = {
   tokens: number;
   lastRefill: number;
@@ -8,8 +5,8 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
-const WINDOW_MS = 60_000; // 1 minute
-const MAX_REQUESTS = 10;  // 10 requests per minute per key
+const WINDOW_MS = 60_000;
+const MAX_REQUESTS = 10;
 
 export function rateLimit(key: string): boolean {
   const now = Date.now();
