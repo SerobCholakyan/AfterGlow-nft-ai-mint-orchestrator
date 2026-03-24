@@ -1,0 +1,27 @@
+{
+  "name": "AfterGlow-nft-ai-mint-orchestrator",
+  "version": "1.0.0",
+  "description": "AfterGlow: public AI NFT mint orchestrator for Polygon & Ethereum.",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npm start",
+    "hardhat": "hardhat",
+    "compile": "hardhat compile",
+    "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
+    "deploy:ethereum": "hardhat run scripts/deploy.ts --network ethereum"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}
